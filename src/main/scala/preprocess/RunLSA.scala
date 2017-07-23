@@ -1,7 +1,7 @@
 package preprocess
 
 /**
-  * Created by hungdv on 20/07/2017.
+  * Created by hungdv on 22/07/2017.
   */
 
 import java.util
@@ -38,25 +38,13 @@ object RunLSA {
     val rawNormalCmtPath = "normal_comments.txt"
     val rawSaraCmtPath = "sara_comments.txt"
     //Server
+    // TODO: Change these paths.
     val normalCmtPath = "/user/hungvd8/normal_pps.txt"
     val saraCmtPath = "/user/hungvd8/sara_pps.txt"
     val dictionaryPath = "/user/hungvd8/id_full.txt"
     val stopwordsPath = "/user/hungvd8/stop_words.txt"
     val saraTestPath = "/user/hungvd8/sara_test_pps.txt"
     val normalTestPath = "/user/hungvd8/normal_test_pps.txt"
-    //Local
-    //val normalCmtPath = "/home/hungdv/workspace/Babe_challenge/src/main/resources/preprocessed/normal_pps.txt"
-/*    val normalCmtPath = "/home/hungdv/workspace/Babe_challenge/src/main/resources/preprocessed/normal_pps.txt"
-    val saraCmtPath = "/home/hungdv/workspace/Babe_challenge/src/main/resources/preprocessed/sara_pps.txt"
-    val dictionaryPath = "id_full.txt"
-    val stopwordsPath = "stop_words.txt"*/
-    /*    val saraTestPath = "/home/hungdv/workspace/Babe_challenge/src/main/resources/preprocessed/sara_test_pps.txt"
-    val normalTestPath = "/home/hungdv/workspace/Babe_challenge/src/main/resources/preprocessed/normal_test_pps.txt"*/
-
-    /*val normalTitle: (String => String) = (agrs: String) => { "normal"}
-    val saraTitle: (String => String) = (agrs: String) => { "sara"}
-    val sqlNormalTitle = org.apache.spark.sql.functions.udf(normalTitle)
-    val sqlSaraTitle = org.apache.spark.sql.functions.udf(saraTitle)*/
 
     val normalCmt = spark.sparkContext.textFile(normalCmtPath).map(text => ("normal",text))
     val saraCmt = spark.sparkContext.textFile(saraCmtPath).map(text => ("sara",text))
@@ -77,7 +65,10 @@ object RunLSA {
 
     vecRdd.cache()
     val mat = new RowMatrix(vecRdd)
-    val turnning = for(k <- 200 to 1000 by 200) yield {
+    // k : number of concepts
+    // threshold: for dertermine a comment is sara or not through it sara_score.
+    // TODO : Change range of k and threshold to tunning.
+    val tunning = for(k <- 17 to 18 by 1; threshold <- 0.5 to 0.7 by 0.05) yield {
     //val k = 150
       println("k :" + k)
       val svd = mat.computeSVD(k, computeU=true)
@@ -95,28 +86,17 @@ object RunLSA {
       val sqlpredictionLabel = org.apache.spark.sql.functions.udf(predictionLabel)
 */
 
-      val result_labeled = result.withColumn("predicted_label",when($"prediction_score" > lit(0.5),"sara").otherwise("normal")).cache()
+      val result_labeled = result.withColumn("predicted_label",when($"prediction_score" > lit(threshold),"sara").otherwise("normal")).cache()
       result_labeled.show(30)
-
       result_labeled.createOrReplaceTempView("resutl_labeled")
-      //result_labeled.write.format("com.databricks.spark.csv").save("/user/hungvd8/result_labeled")
-      //val result_labeled = result.withColumn("predicted_label",sqlpredictionLabel(col("prediction_score")))
-      //result_labeled.createOrReplaceTempView("result_labeled")
       //Can't use ML pipeline here :((
       val TPFP = 2816
       val TPFN_df = spark.sql("SELECT count(*) as count from resutl_labeled where (predicted_label = 'sara')")
       TPFN_df.show()
-      val TPFN = TPFN_df.head(1)(0).getAs[Int]("count")
+      val TPFN = TPFN_df.head(1)(0).getAs[Long]("count")
       val TP_df = spark.sql("SELECT count(*) as count from resutl_labeled where (label = 'sara' AND predicted_label = 'sara')")
-      val TP = TP_df.head(1)(0).getAs[Int]("count")
+      val TP = TP_df.head(1)(0).getAs[Long]("count")
       TP_df.show()
-      //val TP_df = result_labeled.where(col("label") === "sara" && col("predicted_label") === "sara")
-      //val TP_df = result_labeled.where(col("label") === "sara" && col("predicted_label") === "sara")
-      //TP_df.show()
-      //val TP = TP_df.count()
-      //println("TP :"  + TP)
-      //val TPFP = result_labeled.where(col("label") === "sara").count()
-      //val TPFN = result_labeled.where(col("predicted_label") === "sara").count()
 
       println( " Precision " + TP/TPFP)
       println( " Recall " + TP/TPFN)
@@ -124,11 +104,11 @@ object RunLSA {
       result_labeled.unpersist(true)
       bEngine.unpersist()
       bEngine.destroy()
-      (k,TP/TPFP,TP/TPFN)
+      (k,threshold,TP/TPFP,TP/TPFN)
     }
     docTermMatrix.unpersist()
     vecRdd.unpersist()
-    turnning.sortBy(_._2).reverse.foreach(println(_))
+    tunning.sortBy(_._3).reverse.foreach(println(_))
 
   }
 
@@ -367,18 +347,3 @@ class LSAQueryEngine(
   }
 }
 
-
-
-object test{
-  def main(args: Array[String]): Unit = {
-    Logger.getLogger("org").setLevel(Level.OFF)
-    Logger.getLogger("akka").setLevel(Level.OFF)
-    val sparkSession = SparkSession.builder().master("local[1]").appName("test").getOrCreate()
-    import sparkSession.implicits._
-    val df = sparkSession.sparkContext.parallelize(Seq(1234)).toDF("count")
-    df.show
-    val TF = df.head(1)(0).getAs[Int]("count")
-    println(TF)
-
-  }
-}

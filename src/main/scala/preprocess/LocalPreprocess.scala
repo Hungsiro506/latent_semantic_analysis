@@ -14,7 +14,7 @@ import jsastrawi.morphology.{DefaultLemmatizer, Lemmatizer}
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Created by hungdv on 20/07/2017.
+  * Created by hungdv on 22/07/2017.
   */
 object LocalPreprocess {
   def loadStopWords(path:String) : Set[String] = {

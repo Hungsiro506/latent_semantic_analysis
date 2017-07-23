@@ -15,7 +15,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 /**
-  * Created by hungdv on 20/07/2017.
+  * Created by hungdv on 22/07/2017.
   */
 class BuildDocumentTermMatrix(private val spark: SparkSession) extends Serializable {
   import spark.implicits._
